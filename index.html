@@ -5,83 +5,183 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TWCS 退單查詢</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+  /* 先套用主題，避免載入時閃白 */
+  (function () {
+    var t = 'auto';
+    try { t = localStorage.getItem('twcs_theme') || 'auto'; } catch (_) {}
+    if (t !== 'auto') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <style>
+  /* ================= 色彩 tokens ================= */
   :root {
-    --bg: #f5f6f8; --card: #ffffff; --text: #1f2328; --muted: #6b7280; --line: #e5e7eb;
-    --brand: #ee4d2d; --brand-soft: #fdeee9; --ok: #16a34a; --ok-soft: #e8f6ec;
-    --warn: #b45309; --warn-soft: #fef3c7; --bad: #b91c1c; --bad-soft: #fdecea;
-    --radius: 12px;
+    --brand: #ee4d2d; --brand-2: #ff7a45;
+    --text: #1d1f24; --muted: #646b76; --line: rgba(20, 24, 33, .10);
+    --glass: rgba(255, 255, 255, .62); --glass-strong: rgba(255, 255, 255, .82);
+    --glass-border: rgba(255, 255, 255, .75); --shadow: 0 8px 32px rgba(60, 40, 30, .12);
+    --brand-soft: rgba(238, 77, 45, .10); --ok: #15803d; --ok-soft: rgba(22, 163, 74, .12);
+    --warn: #a14e06; --warn-soft: rgba(245, 158, 11, .16); --bad: #b91c1c;
+    --bg-base: #fbf4f0;
+    --blob-1: rgba(238, 77, 45, .30); --blob-2: rgba(255, 166, 80, .30); --blob-3: rgba(120, 140, 255, .18);
+    --radius: 16px; color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #111315; --card: #1b1e21; --text: #e6e8ea; --muted: #9aa1a9; --line: #2c3035;
-      --brand-soft: #3a1f19; --ok-soft: #13301d; --warn-soft: #3a2c10; --bad-soft: #3a1717;
+    :root:not([data-theme="light"]) {
+      --text: #eceef1; --muted: #a0a7b1; --line: rgba(255, 255, 255, .09);
+      --glass: rgba(26, 28, 36, .58); --glass-strong: rgba(30, 32, 42, .82);
+      --glass-border: rgba(255, 255, 255, .12); --shadow: 0 8px 32px rgba(0, 0, 0, .45);
+      --brand-soft: rgba(238, 77, 45, .18); --ok: #4ade80; --ok-soft: rgba(74, 222, 128, .14);
+      --warn: #fbbf24; --warn-soft: rgba(251, 191, 36, .14);
+      --bg-base: #0e0f14;
+      --blob-1: rgba(238, 77, 45, .30); --blob-2: rgba(180, 70, 30, .22); --blob-3: rgba(80, 90, 200, .20);
+      color-scheme: dark;
     }
   }
+  :root[data-theme="dark"] {
+    --text: #eceef1; --muted: #a0a7b1; --line: rgba(255, 255, 255, .09);
+    --glass: rgba(26, 28, 36, .58); --glass-strong: rgba(30, 32, 42, .82);
+    --glass-border: rgba(255, 255, 255, .12); --shadow: 0 8px 32px rgba(0, 0, 0, .45);
+    --brand-soft: rgba(238, 77, 45, .18); --ok: #4ade80; --ok-soft: rgba(74, 222, 128, .14);
+    --warn: #fbbf24; --warn-soft: rgba(251, 191, 36, .14);
+    --bg-base: #0e0f14;
+    --blob-1: rgba(238, 77, 45, .30); --blob-2: rgba(180, 70, 30, .22); --blob-3: rgba(80, 90, 200, .20);
+    color-scheme: dark;
+  }
+
+  /* ================= 底圖：漸層光暈（純 CSS，不需圖片） ================= */
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font-family: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", sans-serif; font-size: 14px; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0; color: var(--text); background: var(--bg-base);
+    font-family: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", sans-serif; font-size: 14px;
+    transition: background-color .3s ease, color .3s ease;
+  }
+  body::before {
+    content: ""; position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(38% 42% at 12% 18%, var(--blob-1), transparent 70%),
+      radial-gradient(34% 40% at 88% 12%, var(--blob-2), transparent 70%),
+      radial-gradient(40% 46% at 70% 92%, var(--blob-3), transparent 70%);
+    filter: blur(10px);
+    animation: drift 24s ease-in-out infinite alternate;
+  }
+  @keyframes drift { to { transform: translate3d(3%, -2%, 0) scale(1.05); } }
+  @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+
   .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
 
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
-  .badge { background: var(--brand); color: #fff; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 999px; }
-  h1 { font-size: 20px; margin: 0; flex: 1; }
+  /* ================= 玻璃容器 ================= */
+  .glass, .card, .stat, .banner, .seg {
+    background: var(--glass);
+    backdrop-filter: blur(20px) saturate(1.3); -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border: 1px solid var(--glass-border); box-shadow: var(--shadow);
+  }
+
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
+           padding: 12px 16px; border-radius: var(--radius); }
+  .badge { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; font-weight: 700;
+           font-size: 12px; padding: 4px 10px; border-radius: 999px; box-shadow: 0 2px 10px rgba(238, 77, 45, .35); }
+  h1 { font-size: 20px; margin: 0; flex: 1; letter-spacing: .3px; }
   .me { color: var(--muted); font-size: 13px; }
   .linkbtn { background: none; border: 0; color: var(--brand); cursor: pointer; font-size: 13px; padding: 0; }
 
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
-  .login { text-align: center; padding: 40px 16px; }
+  /* 主題切換：膠囊分段控制器 */
+  .seg { position: relative; display: flex; border-radius: 999px; padding: 3px; box-shadow: none; }
+  .seg-thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3);
+               background: var(--brand); border-radius: 999px; box-shadow: 0 2px 8px rgba(238, 77, 45, .4);
+               transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+  .seg-btn { flex: 1; position: relative; z-index: 1; border: 0; background: transparent; padding: 5px 11px;
+             font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap;
+             transition: color .2s ease; }
+  .seg-btn.on { color: #fff; }
+
+  .card { border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .login { text-align: center; padding: 44px 16px; }
   .login p { color: var(--muted); }
 
   .weeks { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .pill { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px;
-          padding: 7px 14px; cursor: pointer; font-size: 13px; }
-  .pill.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .pill { border: 1px solid var(--glass-border); background: var(--glass); color: var(--text); border-radius: 999px;
+          padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600;
+          backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: transform .12s ease; }
+  .pill.active { background: linear-gradient(135deg, var(--brand), var(--brand-2)); border-color: transparent; color: #fff;
+                 box-shadow: 0 4px 14px rgba(238, 77, 45, .35); }
   .pill .n { opacity: .75; margin-left: 4px; }
 
-  .banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; }
+  .banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px;
+            border-radius: 12px; margin-bottom: 14px; }
   .banner.open { background: var(--warn-soft); color: var(--warn); }
-  .banner.closed { background: var(--bg); color: var(--muted); border: 1px dashed var(--line); }
+  .banner.closed { color: var(--muted); }
   .banner .grow { flex: 1; }
-  .btn { border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
-  .btn.primary { background: var(--brand); color: #fff; }
-  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
-  .btn.done { background: var(--ok-soft); color: var(--ok); cursor: default; }
+
+  .btn { border: 0; border-radius: 10px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 700;
+         transition: transform .12s ease, box-shadow .2s ease; }
+  .btn.primary { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff;
+                 box-shadow: 0 4px 14px rgba(238, 77, 45, .35); }
+  .btn.ghost { background: var(--glass-strong); border: 1px solid var(--line); color: var(--text); }
+  .btn.done { background: var(--ok-soft); color: var(--ok); cursor: default; box-shadow: none; }
   .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn:not(:disabled):active, .pill:active, .seg-btn:active { transform: scaleX(.96) scaleY(.92); }
+  @keyframes pop { 0% { transform: scale(.94); } 60% { transform: scale(1.03); } 100% { transform: scale(1); } }
+  .pop { animation: pop .28s cubic-bezier(.34, 1.56, .64, 1); }
 
   .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 110px; }
-  .stat b { display: block; font-size: 22px; }
+  .stat { border-radius: 14px; padding: 12px 16px; min-width: 120px; }
+  .stat b { display: block; font-size: 24px; color: var(--brand); }
   .stat span { color: var(--muted); font-size: 12px; }
 
   h2 { font-size: 15px; margin: 0 0 10px; }
   .tablebox { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; min-width: 640px; }
-  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
-  td.mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 700; font-size: 12px; white-space: nowrap; }
+  tbody tr { transition: background-color .15s ease; }
+  tbody tr:hover td { background: var(--brand-soft); }
+  td { white-space: nowrap; }
+  td.mono { font-variant-numeric: tabular-nums; }
   .empty { color: var(--muted); padding: 18px 8px; text-align: center; }
 
-  .appeal-done { background: var(--ok-soft); color: var(--ok); border-radius: 8px; padding: 6px 8px; font-size: 12px; max-width: 260px; }
+  .appeal-done { white-space: normal; min-width: 180px; background: var(--ok-soft); color: var(--ok); border-radius: 10px; padding: 6px 8px; font-size: 12px; max-width: 260px; }
   .appeal-done small { display: block; opacity: .8; }
-  .formrow td { background: var(--brand-soft); }
-  textarea { width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 8px;
-             font: inherit; background: var(--card); color: var(--text); resize: vertical; }
+  .formrow td, .formrow:hover td { background: var(--brand-soft); white-space: normal; }
+  textarea { width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 10px; padding: 8px;
+             font: inherit; background: var(--glass-strong); color: var(--text); resize: vertical; }
+  textarea:focus { outline: 2px solid rgba(238, 77, 45, .45); outline-offset: 1px; }
   .formbar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   .formbar .count { color: var(--muted); font-size: 12px; flex: 1; }
 
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--card);
-           padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); }
-  .toast.show { opacity: 1; }
+  /* 逐列顯影（只在載入與切換週次時播放） */
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .reveal .card, .reveal .stat, .reveal .banner { animation: rise .35s ease both; }
+  .reveal tbody tr { animation: rise .3s ease both; animation-delay: calc(var(--i, 0) * 35ms); }
+  @media (prefers-reduced-motion: reduce) { .reveal *, .pop { animation: none !important; } }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); color: var(--text);
+           background: var(--glass-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow);
+           backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+           padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; opacity: 0;
+           transition: opacity .2s, transform .25s cubic-bezier(.34, 1.56, .64, 1); pointer-events: none; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
   .loading { text-align: center; color: var(--muted); padding: 40px; }
+
+  @media (max-width: 560px) {
+    h1 { font-size: 17px; flex-basis: 100%; }
+    header { gap: 8px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
+  <header class="glass">
     <span class="badge">Shopee CS Team</span>
     <h1>退單查詢與申訴</h1>
     <span class="me" id="me"></span>
+    <div class="seg" id="themeSeg" role="radiogroup" aria-label="主題">
+      <div class="seg-thumb"></div>
+      <button class="seg-btn" data-theme="auto" role="radio">自動</button>
+      <button class="seg-btn" data-theme="light" role="radio">淺色</button>
+      <button class="seg-btn" data-theme="dark" role="radio">深色</button>
+    </div>
   </header>
 
   <div id="app"></div>
@@ -95,7 +195,7 @@
 </script>
 
 <script>
-const S = { token: '', data: null, week: '', openForm: null };
+const S = { token: '', data: null, week: '', openForm: null, animate: false };
 const $app = document.getElementById('app');
 
 /* ---------- 登入 ---------- */
@@ -130,7 +230,7 @@ function logout() {
 
 /* ---------- API ---------- */
 async function api(path, payload = {}) {
-  const res = await fetch(API_BASE + path, {
+  const res = await fetch(API_BASE.replace(/\/+$/, '') + path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ idToken: S.token, ...payload }),
@@ -145,6 +245,7 @@ async function load() {
   $app.innerHTML = '<div class="loading">讀取資料中…</div>';
   try {
     S.data = await api('/api/me');
+    S.animate = true;
     if (!S.week) S.week = S.data.weeks[0].week;
     document.getElementById('me').innerHTML =
       `${esc(S.data.user.name)}（${esc(S.data.user.email)}）　<button class="linkbtn" onclick="logout()">登出</button>`;
@@ -177,9 +278,14 @@ function render() {
   const tables = d.tabs.map(t => tableHtml(t, wk)).join('');
 
   $app.innerHTML = `<div class="weeks">${pills}</div>${sync}${banner}<div class="stats">${stats}</div>${tables}`;
+  // 只在載入與切換週次時播放顯影動畫，開關申訴表單時不重播
+  $app.classList.toggle('reveal', S.animate);
+  if (S.animate) $app.querySelectorAll('tbody tr').forEach((tr, i) => tr.style.setProperty('--i', Math.min(i, 12)));
+  S.animate = false;
 }
 
 function viewBtn(wk) {
+  if (!wk.count) return '';
   return wk.viewed
     ? `<button class="btn done" disabled>✓ 已查看</button>`
     : `<button class="btn primary" onclick="markViewed('${wk.week}', this)">我已查看本週退單</button>`;
@@ -223,7 +329,7 @@ function rowHtml(t, r, wk) {
 }
 
 /* ---------- 動作 ---------- */
-function pickWeek(w) { S.week = w; S.openForm = null; render(); }
+function pickWeek(w) { S.week = w; S.openForm = null; S.animate = true; render(); }
 
 function openForm(id) {
   S.openForm = id; render();
@@ -254,6 +360,7 @@ async function markViewed(week, btn) {
   try {
     await api('/api/viewed', { week });
     S.data.weeks.find(w => w.week === week).viewed = true;
+    S.data.tabs.forEach(t => t.rows.forEach(r => { if (r.week === week) r.checked = true; }));
     render(); toast('已記錄查看');
   } catch (e) { btn.disabled = false; toast('❌ ' + e.message); }
 }
@@ -277,6 +384,35 @@ function toast(msg) {
   el.textContent = msg; el.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
+
+/* ---------- 主題切換（自動／淺色／深色） ---------- */
+const THEMES = ['auto', 'light', 'dark'];
+function applyTheme(t) {
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('twcs_theme', t); } catch (_) {}
+  const idx = Math.max(0, THEMES.indexOf(t));
+  const seg = document.getElementById('themeSeg');
+  seg.querySelector('.seg-thumb').style.transform = `translateX(${idx * 100}%)`;
+  seg.querySelectorAll('.seg-btn').forEach((b, i) => {
+    b.classList.toggle('on', i === idx);
+    b.setAttribute('aria-checked', i === idx);
+  });
+}
+document.querySelectorAll('#themeSeg .seg-btn').forEach(b => { b.onclick = () => applyTheme(b.dataset.theme); });
+(function () {
+  let t = 'auto';
+  try { t = localStorage.getItem('twcs_theme') || 'auto'; } catch (_) {}
+  applyTheme(THEMES.includes(t) ? t : 'auto');
+})();
+
+/* ---------- 按鈕回彈（事件委派，不影響原本 onclick） ---------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('.btn:not(:disabled), .pill, .seg-btn');
+  if (!b) return;
+  b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+});
+document.addEventListener('animationend', e => { if (e.animationName === 'pop') e.target.classList.remove('pop'); });
 
 /* ---------- 啟動 ---------- */
 (function init() {
