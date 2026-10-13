@@ -1,507 +1,57 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>專案甘特圖 · Project Gantt</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>派遣登入測試</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
-:root{
-  --bg:#f4f5f8; --panel:#ffffff; --ink:#1f2430; --ink-soft:#6b7280; --ink-faint:#9aa1af;
-  --line:#e6e8ee; --line-strong:#d6d9e2; --accent:#4f46e5; --accent-soft:#eef0ff;
-  --weekend:#f8f9fc; --today:#ef4444; --track:#eceef3;
-  --shadow:0 10px 30px rgba(30,36,48,.08); --radius:12px;
-  --c-plan:#6366f1; --c-dev:#0ea5e9; --c-test:#f59e0b; --c-doc:#14b8a6; --c-deploy:#ef4444;
-  --left:288px; --rowH:46px; --headH:60px;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:"Inter","Noto Sans TC",system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.4;}
-button,input,select{font-family:inherit;font-size:inherit;color:inherit;}
-
-.wrap{max-width:1240px;margin:0 auto;padding:26px 22px 60px;}
-
-/* ---------- Header ---------- */
-.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;}
-.title h1{font-size:22px;font-weight:700;letter-spacing:-.3px;}
-.title p{color:var(--ink-soft);font-size:13px;margin-top:3px;}
-.stats{display:flex;gap:10px;flex-wrap:wrap;}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 14px;min-width:92px;box-shadow:var(--shadow);}
-.stat b{display:block;font-size:19px;font-weight:700;line-height:1.1;}
-.stat span{font-size:11.5px;color:var(--ink-soft);}
-.stat.accent b{color:var(--accent);}
-
-/* ---------- Toolbar ---------- */
-.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px;box-shadow:var(--shadow);}
-.btn{border:1px solid var(--line-strong);background:#fff;border-radius:9px;padding:8px 13px;cursor:pointer;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;transition:.15s;white-space:nowrap;}
-.btn:hover{border-color:var(--accent);color:var(--accent);}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
-.btn.primary:hover{background:#4338ca;color:#fff;}
-.btn:active{transform:translateY(1px);}
-.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:9px;overflow:hidden;}
-.seg button{border:0;background:#fff;padding:8px 14px;cursor:pointer;font-weight:600;font-size:13px;color:var(--ink-soft);}
-.seg button.on{background:var(--accent);color:#fff;}
-.spacer{flex:1;}
-.legend{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-left:2px;}
-.legend span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);}
-.dot{width:11px;height:11px;border-radius:3px;}
-
-/* ---------- Gantt ---------- */
-.chart{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;position:relative;}
-.inner{position:relative;}
-
-.head{display:flex;position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--line-strong);height:var(--headH);}
-.head-left{position:sticky;left:0;z-index:31;width:var(--left);min-width:var(--left);background:var(--panel);border-right:1px solid var(--line-strong);display:flex;align-items:center;padding:0 16px;font-weight:700;font-size:13px;color:var(--ink-soft);}
-.head-time{position:relative;}
-.months{display:flex;height:26px;border-bottom:1px solid var(--line);}
-.month{border-right:1px solid var(--line);font-size:11.5px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;padding-left:8px;white-space:nowrap;overflow:hidden;}
-.days{display:flex;height:34px;}
-.day{border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10.5px;color:var(--ink-faint);flex-shrink:0;}
-.day.wknd{background:var(--weekend);}
-.day .dnum{font-weight:600;color:var(--ink-soft);font-size:11px;}
-.day.today{background:var(--accent-soft);}
-.day.today .dnum{color:var(--accent);}
-
-.grid-bg{position:absolute;top:var(--headH);left:var(--left);z-index:0;}
-.wk-band{position:absolute;top:0;bottom:0;background:var(--weekend);}
-.today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--today);z-index:5;opacity:.75;}
-.today-line::before{content:"今日";position:absolute;top:-1px;left:3px;font-size:9.5px;font-weight:700;color:#fff;background:var(--today);padding:1px 4px;border-radius:0 0 4px 0;}
-
-.rows{position:relative;z-index:1;}
-.row{display:flex;height:var(--rowH);border-bottom:1px solid var(--line);}
-.row:hover .cell-left{background:#fafbff;}
-.row:hover .cell-time{background:rgba(79,70,229,.03);}
-.cell-left{position:sticky;left:0;z-index:20;width:var(--left);min-width:var(--left);background:var(--panel);border-right:1px solid var(--line-strong);display:flex;align-items:center;gap:9px;padding:0 12px;cursor:pointer;}
-.cell-left .cat{width:4px;height:26px;border-radius:3px;flex-shrink:0;}
-.cell-left .meta{min-width:0;flex:1;}
-.cell-left .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.cell-left .ow{font-size:11px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.cell-left .pct{font-family:"Roboto Mono",monospace;font-size:11.5px;color:var(--ink-soft);font-weight:500;flex-shrink:0;}
-.cell-time{position:relative;flex-shrink:0;}
-
-.bar{position:absolute;top:9px;height:26px;border-radius:7px;cursor:grab;overflow:hidden;display:flex;align-items:center;box-shadow:0 2px 6px rgba(0,0,0,.12);user-select:none;touch-action:none;}
-.bar:active{cursor:grabbing;}
-.bar .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.35);}
-.bar .lbl{position:relative;z-index:2;font-size:11px;font-weight:600;color:#fff;padding:0 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.15);}
-.bar .grip{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:3;}
-.bar .grip.l{left:0;} .bar .grip.r{right:0;}
-.milestone{position:absolute;top:8px;width:28px;height:28px;transform:rotate(45deg);border-radius:6px;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.18);touch-action:none;}
-.ms-lbl{position:absolute;top:11px;font-size:11px;font-weight:600;white-space:nowrap;color:var(--ink);}
-
-.empty{padding:40px;text-align:center;color:var(--ink-soft);}
-
-/* ---------- Modal ---------- */
-.overlay{position:fixed;inset:0;background:rgba(20,24,33,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:18px;}
-.overlay.on{display:flex;}
-.modal{background:#fff;border-radius:14px;width:100%;max-width:440px;box-shadow:0 30px 70px rgba(0,0,0,.3);overflow:hidden;}
-.modal h3{padding:18px 20px;border-bottom:1px solid var(--line);font-size:16px;font-weight:700;}
-.modal .body{padding:18px 20px;display:grid;gap:14px;}
-.field{display:grid;gap:5px;}
-.field label{font-size:12px;font-weight:600;color:var(--ink-soft);}
-.field input,.field select{border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;width:100%;}
-.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.range{display:flex;align-items:center;gap:10px;}
-.range input[type=range]{flex:1;accent-color:var(--accent);}
-.range b{font-family:"Roboto Mono",monospace;min-width:42px;text-align:right;}
-.modal .foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;}
-.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);}
-
-@media(max-width:640px){
-  :root{--left:180px;}
-  .cell-left .ow{display:none;}
-  .stats{width:100%;}
-}
+  body { font-family: system-ui, "Noto Sans TC", sans-serif; max-width: 560px; margin: 40px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 20px; }
+  .box { margin-top: 20px; padding: 16px; border-radius: 10px; background: #f4f6f8; display: none; }
+  .ok { background: #e8f6ec; }
+  .bad { background: #fdecea; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 6px 4px; border-bottom: 1px solid #ddd; font-size: 14px; word-break: break-all; }
+  td:first-child { width: 120px; color: #666; }
 </style>
 </head>
 <body>
-<div class="wrap">
+  <h1>派遣帳號 Google 登入測試</h1>
+  <p>請用公司派遣信箱（@shopeemobile-external.com）登入，成功後把下方結果截圖回傳。</p>
 
-  <div class="top">
-    <div class="title">
-      <h1>專案甘特圖</h1>
-      <p>拖曳調整區間 · 邊緣拉伸縮放 · 資料自動保存於本機瀏覽器</p>
-    </div>
-    <div class="stats" id="stats"></div>
-  </div>
+  <!-- ⚠️ 把 YOUR_CLIENT_ID 換成 GCP OAuth Client ID -->
+  <div id="g_id_onload"
+       data-client_id="1065926217249-61fk1ji75kc7ksg0j3hsjls7h8ojv1pe.apps.googleusercontent.com"
+       data-callback="onCredential"
+       data-auto_prompt="false"></div>
+  <div class="g_id_signin" data-type="standard" data-text="signin_with" data-locale="zh-TW"></div>
 
-  <div class="toolbar">
-    <button class="btn primary" id="addBtn">＋ 新增任務</button>
-    <button class="btn" id="addMs">◆ 新增里程碑</button>
-    <div class="seg" id="zoom">
-      <button data-z="day" class="on">日檢視</button>
-      <button data-z="week">週檢視</button>
-    </div>
-    <div class="spacer"></div>
-    <div class="legend">
-      <span><i class="dot" style="background:var(--c-plan)"></i>規劃</span>
-      <span><i class="dot" style="background:var(--c-dev)"></i>開發</span>
-      <span><i class="dot" style="background:var(--c-test)"></i>測試</span>
-      <span><i class="dot" style="background:var(--c-doc)"></i>文件</span>
-      <span><i class="dot" style="background:var(--c-deploy)"></i>部署</span>
-    </div>
-  </div>
-
-  <div class="chart" id="chart"></div>
-
-  <div class="toolbar" style="margin-top:14px;">
-    <button class="btn" id="expJson">⬇ 匯出 JSON</button>
-    <button class="btn" id="expCsv">⬇ 匯出 CSV</button>
-    <label class="btn" for="impFile">⬆ 匯入 JSON</label>
-    <input type="file" id="impFile" accept="application/json" hidden />
-    <div class="spacer"></div>
-    <button class="btn" id="resetBtn" style="color:#ef4444;border-color:#f3c9c4;">重設為範例資料</button>
-  </div>
-</div>
-
-<!-- Modal -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <h3 id="mTitle">編輯任務</h3>
-    <div class="body">
-      <div class="field">
-        <label>任務名稱</label>
-        <input id="fName" type="text" maxlength="60" placeholder="例如：Voucher 小幫手 v10" />
-      </div>
-      <div class="grid2">
-        <div class="field"><label>負責人</label><input id="fOwner" type="text" maxlength="30" placeholder="Yomi" /></div>
-        <div class="field"><label>分類</label>
-          <select id="fCat">
-            <option value="plan">規劃</option>
-            <option value="dev">開發</option>
-            <option value="test">測試</option>
-            <option value="doc">文件</option>
-            <option value="deploy">部署</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label>開始日期</label><input id="fStart" type="date" /></div>
-        <div class="field" id="endWrap"><label>結束日期</label><input id="fEnd" type="date" /></div>
-      </div>
-      <div class="field" id="progWrap">
-        <label>進度</label>
-        <div class="range"><input id="fProg" type="range" min="0" max="100" step="5" /><b id="progVal">0%</b></div>
-      </div>
-      <label class="chk"><input id="fMs" type="checkbox" /> 設為里程碑（單一時間點）</label>
-    </div>
-    <div class="foot">
-      <button class="btn" id="delBtn" style="color:#ef4444;border-color:#f3c9c4;">刪除</button>
-      <div style="display:flex;gap:10px;">
-        <button class="btn" id="cancelBtn">取消</button>
-        <button class="btn primary" id="saveBtn">儲存</button>
-      </div>
-    </div>
-  </div>
-</div>
+  <div id="result" class="box"></div>
 
 <script>
-"use strict";
-/* =========================================================
-   專案甘特圖 · 核心模組
-   ========================================================= */
-
-const CATS = {
-  plan:  {name:"規劃", color:"#6366f1"},
-  dev:   {name:"開發", color:"#0ea5e9"},
-  test:  {name:"測試", color:"#f59e0b"},
-  doc:   {name:"文件", color:"#14b8a6"},
-  deploy:{name:"部署", color:"#ef4444"},
-};
-const KEY = "gantt.tasks.v1";
-const DAY_W = { day:34, week:15 };
-
-/* ---- 範例資料（依你的工具開發脈絡） ---- */
-const SEED = [
-  {id:1, name:"出勤追蹤系統 GAS",        owner:"Yomi",       cat:"dev",    start:"2026-07-03", end:"2026-07-14", progress:50, milestone:false},
-  {id:2, name:"CS Queue Monitor 優化",   owner:"Yomi",       cat:"dev",    start:"2026-07-01", end:"2026-07-10", progress:70, milestone:false},
-  {id:3, name:"派信小幫手 錯誤修正",       owner:"Lucy",       cat:"test",   start:"2026-07-05", end:"2026-07-09", progress:100,milestone:false},
-  {id:4, name:"Voucher 小幫手 v10",       owner:"Yomi",       cat:"dev",    start:"2026-07-08", end:"2026-07-16", progress:30, milestone:false},
-  {id:5, name:"v10 正式發佈",             owner:"Yomi",       cat:"deploy", start:"2026-07-16", end:"2026-07-16", progress:0,  milestone:true},
-  {id:6, name:"CS 工具箱 Sites 改版",      owner:"Patty",      cat:"plan",   start:"2026-07-12", end:"2026-07-19", progress:10, milestone:false},
-  {id:7, name:"團隊操作手冊更新",          owner:"Yomi",       cat:"doc",    start:"2026-07-17", end:"2026-07-22", progress:0,  milestone:false},
-];
-
-/* ---- 狀態 ---- */
-let tasks = load();
-let zoom = "day";
-let editingId = null;
-
-/* ---- 日期工具 ---- */
-const MS = 86400000;
-function parse(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
-function fmt(dt){ return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0"); }
-function addDays(dt,n){ const d=new Date(dt); d.setDate(d.getDate()+n); return d; }
-function diffDays(a,b){ return Math.round((b-a)/MS); }
-function today(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()); }
-
-/* ---- 儲存 ---- */
-function load(){
-  try{ const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){}
-  return JSON.parse(JSON.stringify(SEED));
-}
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(tasks)); }catch(e){} }
-
-/* ---- 圖表範圍 ---- */
-function chartRange(){
-  if(!tasks.length){ const t=today(); return {start:addDays(t,-3), days:30}; }
-  let min=parse(tasks[0].start), max=parse(tasks[0].end);
-  tasks.forEach(t=>{ const s=parse(t.start),e=parse(t.end); if(s<min)min=s; if(e>max)max=e; });
-  const tdy=today(); if(tdy<min)min=tdy; if(tdy>max)max=tdy;
-  const start=addDays(min,-3);
-  const days=Math.max(diffDays(start,max)+5, 24);
-  return {start, days};
-}
-
-/* =========================================================
-   渲染
-   ========================================================= */
-function render(){
-  const chart=document.getElementById("chart");
-  const {start,days}=chartRange();
-  const dw=DAY_W[zoom];
-  const timeW=days*dw;
-  const tdyIdx=diffDays(start,today());
-
-  // 表頭：月份列
-  let months="";
-  let i=0;
-  while(i<days){
-    const d=addDays(start,i);
-    let span=0; const mo=d.getMonth();
-    while(i+span<days && addDays(start,i+span).getMonth()===mo) span++;
-    months+=`<div class="month" style="width:${span*dw}px">${d.getFullYear()}年 ${mo+1}月</div>`;
-    i+=span;
-  }
-  // 表頭：日期列
-  let daysRow="";
-  for(let k=0;k<days;k++){
-    const d=addDays(start,k); const wd=d.getDay(); const wknd=(wd===0||wd===6);
-    const showNum = zoom==="day" ? true : (wd===1); // 週檢視只在週一標日期
-    daysRow+=`<div class="day${wknd?" wknd":""}${k===tdyIdx?" today":""}" style="width:${dw}px">
-      ${showNum?`<span class="dnum">${d.getDate()}</span>`:""}
-      ${zoom==="day"?`<span>${"日一二三四五六"[wd]}</span>`:""}
-    </div>`;
+  function decodeJwt(token) {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(atob(b64).split('').map(c =>
+      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(json);
   }
 
-  // 週末底色帶
-  let bands="";
-  for(let k=0;k<days;k++){
-    const wd=addDays(start,k).getDay();
-    if(wd===0||wd===6) bands+=`<div class="wk-band" style="left:${k*dw}px;width:${dw}px"></div>`;
+  function onCredential(resp) {
+    const p = decodeJwt(resp.credential);
+    const isExternal = /@shopeemobile-external\.com$/i.test(p.email || '');
+    const box = document.getElementById('result');
+    box.className = 'box ' + (isExternal ? 'ok' : 'bad');
+    box.style.display = 'block';
+    box.innerHTML = `
+      <strong>${isExternal ? '✅ 派遣帳號登入成功' : '⚠️ 登入成功，但不是派遣網域'}</strong>
+      <table>
+        <tr><td>email</td><td>${p.email || ''}</td></tr>
+        <tr><td>hd（網域）</td><td>${p.hd || '（無）'}</td></tr>
+        <tr><td>email_verified</td><td>${p.email_verified}</td></tr>
+        <tr><td>name</td><td>${p.name || ''}</td></tr>
+      </table>`;
   }
-  const rowsH=Math.max(tasks.length,1)*46;
-
-  // 任務列
-  let rows="";
-  if(!tasks.length){
-    rows=`<div class="empty">尚無任務。點擊「新增任務」開始規劃。</div>`;
-  }else{
-    tasks.forEach(t=>{
-      const c=CATS[t.cat]||CATS.dev;
-      const sIdx=diffDays(start,parse(t.start));
-      let barHtml;
-      if(t.milestone){
-        barHtml=`<div class="milestone" data-id="${t.id}" style="left:${sIdx*dw+dw/2-14}px;background:${c.color}"></div>
-                 <span class="ms-lbl" style="left:${sIdx*dw+dw/2+18}px">${esc(t.name)}</span>`;
-      }else{
-        const dur=diffDays(parse(t.start),parse(t.end))+1;
-        const left=sIdx*dw+2, w=Math.max(dur*dw-4, dw*0.6);
-        barHtml=`<div class="bar" data-id="${t.id}" style="left:${left}px;width:${w}px;background:${c.color}">
-          <div class="fill" style="width:${t.progress}%"></div>
-          <span class="lbl">${esc(t.name)} · ${t.progress}%</span>
-          <div class="grip l"></div><div class="grip r"></div>
-        </div>`;
-      }
-      rows+=`<div class="row">
-        <div class="cell-left" data-id="${t.id}">
-          <span class="cat" style="background:${c.color}"></span>
-          <div class="meta"><div class="nm">${esc(t.name)}</div><div class="ow">${esc(t.owner||"—")} · ${c.name}</div></div>
-          <span class="pct">${t.milestone?"◆":t.progress+"%"}</span>
-        </div>
-        <div class="cell-time" style="width:${timeW}px">${barHtml}</div>
-      </div>`;
-    });
-  }
-
-  chart.innerHTML=`
-    <div class="inner" style="width:${288+timeW}px;min-width:100%">
-      <div class="grid-bg" style="width:${timeW}px;height:${rowsH}px">
-        ${bands}
-        ${tdyIdx>=0&&tdyIdx<days?`<div class="today-line" style="left:${tdyIdx*dw+dw/2}px"></div>`:""}
-      </div>
-      <div class="head">
-        <div class="head-left">任務 / 負責人</div>
-        <div class="head-time" style="width:${timeW}px">
-          <div class="months">${months}</div>
-          <div class="days">${daysRow}</div>
-        </div>
-      </div>
-      <div class="rows">${rows}</div>
-    </div>`;
-
-  bindBars(start,dw);
-  renderStats();
-  save();
-}
-
-function renderStats(){
-  const total=tasks.length;
-  const done=tasks.filter(t=>!t.milestone&&t.progress===100).length;
-  const active=tasks.filter(t=>!t.milestone&&t.progress>0&&t.progress<100).length;
-  const real=tasks.filter(t=>!t.milestone);
-  const avg=real.length?Math.round(real.reduce((s,t)=>s+t.progress,0)/real.length):0;
-  document.getElementById("stats").innerHTML=`
-    <div class="stat"><b>${total}</b><span>總項目</span></div>
-    <div class="stat"><b>${active}</b><span>進行中</span></div>
-    <div class="stat"><b>${done}</b><span>已完成</span></div>
-    <div class="stat accent"><b>${avg}%</b><span>平均進度</span></div>`;
-}
-
-function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-
-/* =========================================================
-   拖曳（移動 / 拉伸）— 支援滑鼠與觸控
-   ========================================================= */
-function bindBars(chartStart,dw){
-  document.querySelectorAll(".bar,.milestone").forEach(bar=>{
-    bar.addEventListener("pointerdown",e=>{
-      // 點擊 grip = 拉伸；否則整段移動
-      let mode="move";
-      if(e.target.classList.contains("grip")) mode=e.target.classList.contains("l")?"resL":"resR";
-      const id=+bar.dataset.id;
-      const t=tasks.find(x=>x.id===id);
-      const oS=diffDays(chartStart,parse(t.start));
-      const oE=diffDays(chartStart,parse(t.end));
-      const x0=e.clientX;
-      let moved=false;
-      bar.setPointerCapture(e.pointerId);
-
-      function move(ev){
-        const dd=Math.round((ev.clientX-x0)/dw);
-        if(dd!==0) moved=true;
-        let nS=oS,nE=oE;
-        if(mode==="move"){ nS=oS+dd; nE=oE+dd; }
-        else if(mode==="resL"){ nS=Math.min(oS+dd,oE); }
-        else if(mode==="resR"){ nE=Math.max(oE+dd,oS); }
-        t.start=fmt(addDays(chartStart,nS));
-        t.end=t.milestone?t.start:fmt(addDays(chartStart,nE));
-        applyBarStyle(bar,t,chartStart,dw);
-      }
-      function up(){
-        bar.removeEventListener("pointermove",move);
-        bar.removeEventListener("pointerup",up);
-        if(moved){ render(); } // 重繪以更新表頭範圍與統計
-        else if(mode==="move"){ openModal(id); } // 純點擊 = 開啟編輯
-      }
-      bar.addEventListener("pointermove",move);
-      bar.addEventListener("pointerup",up);
-    });
-  });
-  document.querySelectorAll(".cell-left").forEach(c=>{
-    c.addEventListener("click",()=>openModal(+c.dataset.id));
-  });
-}
-function applyBarStyle(bar,t,chartStart,dw){
-  const sIdx=diffDays(chartStart,parse(t.start));
-  if(t.milestone){ bar.style.left=(sIdx*dw+dw/2-14)+"px"; return; }
-  const dur=diffDays(parse(t.start),parse(t.end))+1;
-  bar.style.left=(sIdx*dw+2)+"px";
-  bar.style.width=Math.max(dur*dw-4,dw*0.6)+"px";
-}
-
-/* =========================================================
-   Modal 編輯
-   ========================================================= */
-const ov=document.getElementById("overlay");
-function openModal(id){
-  editingId=id;
-  const t=id?tasks.find(x=>x.id===id):null;
-  document.getElementById("mTitle").textContent=id?"編輯任務":"新增任務";
-  document.getElementById("delBtn").style.display=id?"inline-flex":"none";
-  const td=fmt(today());
-  document.getElementById("fName").value=t?t.name:"";
-  document.getElementById("fOwner").value=t?t.owner:"Yomi";
-  document.getElementById("fCat").value=t?t.cat:"dev";
-  document.getElementById("fStart").value=t?t.start:td;
-  document.getElementById("fEnd").value=t?t.end:fmt(addDays(today(),4));
-  document.getElementById("fProg").value=t?t.progress:0;
-  document.getElementById("progVal").textContent=(t?t.progress:0)+"%";
-  document.getElementById("fMs").checked=t?!!t.milestone:false;
-  toggleMs();
-  ov.classList.add("on");
-  document.getElementById("fName").focus();
-}
-function closeModal(){ ov.classList.remove("on"); editingId=null; }
-function toggleMs(){
-  const on=document.getElementById("fMs").checked;
-  document.getElementById("endWrap").style.opacity=on?.4:1;
-  document.getElementById("fEnd").disabled=on;
-  document.getElementById("progWrap").style.display=on?"none":"grid";
-}
-function saveModal(){
-  const name=document.getElementById("fName").value.trim();
-  if(!name){ document.getElementById("fName").focus(); return; }
-  const ms=document.getElementById("fMs").checked;
-  let start=document.getElementById("fStart").value;
-  let end=ms?start:document.getElementById("fEnd").value;
-  if(parse(end)<parse(start)) end=start;
-  const obj={
-    name, owner:document.getElementById("fOwner").value.trim(),
-    cat:document.getElementById("fCat").value, start, end,
-    progress:ms?0:+document.getElementById("fProg").value, milestone:ms
-  };
-  if(editingId){ Object.assign(tasks.find(x=>x.id===editingId),obj); }
-  else{ obj.id=Date.now(); tasks.push(obj); }
-  closeModal(); render();
-}
-function delTask(){ if(editingId){ tasks=tasks.filter(x=>x.id!==editingId); closeModal(); render(); } }
-
-/* =========================================================
-   匯出 / 匯入
-   ========================================================= */
-function download(name,content,type){
-  const blob=new Blob([content],{type});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download=name; a.click();
-  URL.revokeObjectURL(a.href);
-}
-function expJson(){ download("gantt-tasks.json",JSON.stringify(tasks,null,2),"application/json"); }
-function expCsv(){
-  const head="任務,負責人,分類,開始,結束,進度,里程碑";
-  const rows=tasks.map(t=>[t.name,t.owner,(CATS[t.cat]||{}).name,t.start,t.end,t.progress+"%",t.milestone?"是":"否"]
-    .map(v=>`"${String(v||"").replace(/"/g,'""')}"`).join(","));
-  download("gantt-tasks.csv","\ufeff"+[head,...rows].join("\r\n"),"text/csv;charset=utf-8");
-}
-function impJson(file){
-  const r=new FileReader();
-  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(Array.isArray(d)){ tasks=d; render(); } }catch(e){ alert("JSON 格式錯誤"); } };
-  r.readAsText(file);
-}
-
-/* =========================================================
-   事件綁定
-   ========================================================= */
-document.getElementById("addBtn").onclick=()=>openModal(null);
-document.getElementById("addMs").onclick=()=>{ openModal(null); document.getElementById("fMs").checked=true; toggleMs(); };
-document.getElementById("saveBtn").onclick=saveModal;
-document.getElementById("cancelBtn").onclick=closeModal;
-document.getElementById("delBtn").onclick=delTask;
-document.getElementById("fMs").onchange=toggleMs;
-document.getElementById("fProg").oninput=e=>document.getElementById("progVal").textContent=e.target.value+"%";
-ov.onclick=e=>{ if(e.target===ov) closeModal(); };
-document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeModal(); });
-
-document.getElementById("zoom").querySelectorAll("button").forEach(b=>{
-  b.onclick=()=>{ zoom=b.dataset.z; document.querySelectorAll("#zoom button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); render(); };
-});
-document.getElementById("expJson").onclick=expJson;
-document.getElementById("expCsv").onclick=expCsv;
-document.getElementById("impFile").onchange=e=>{ if(e.target.files[0]) impJson(e.target.files[0]); };
-document.getElementById("resetBtn").onclick=()=>{ if(confirm("確定重設為範例資料？現有資料將清除。")){ tasks=JSON.parse(JSON.stringify(SEED)); render(); } };
-
-render();
 </script>
 </body>
 </html>
