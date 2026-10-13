@@ -3,55 +3,293 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>派遣登入測試</title>
+<title>TWCS 退單查詢</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
-  body { font-family: system-ui, "Noto Sans TC", sans-serif; max-width: 560px; margin: 40px auto; padding: 0 16px; color: #222; }
-  h1 { font-size: 20px; }
-  .box { margin-top: 20px; padding: 16px; border-radius: 10px; background: #f4f6f8; display: none; }
-  .ok { background: #e8f6ec; }
-  .bad { background: #fdecea; }
-  table { border-collapse: collapse; width: 100%; }
-  td { padding: 6px 4px; border-bottom: 1px solid #ddd; font-size: 14px; word-break: break-all; }
-  td:first-child { width: 120px; color: #666; }
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1f2328; --muted: #6b7280; --line: #e5e7eb;
+    --brand: #ee4d2d; --brand-soft: #fdeee9; --ok: #16a34a; --ok-soft: #e8f6ec;
+    --warn: #b45309; --warn-soft: #fef3c7; --bad: #b91c1c; --bad-soft: #fdecea;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111315; --card: #1b1e21; --text: #e6e8ea; --muted: #9aa1a9; --line: #2c3035;
+      --brand-soft: #3a1f19; --ok-soft: #13301d; --warn-soft: #3a2c10; --bad-soft: #3a1717;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", sans-serif; font-size: 14px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .badge { background: var(--brand); color: #fff; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 999px; }
+  h1 { font-size: 20px; margin: 0; flex: 1; }
+  .me { color: var(--muted); font-size: 13px; }
+  .linkbtn { background: none; border: 0; color: var(--brand); cursor: pointer; font-size: 13px; padding: 0; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .login { text-align: center; padding: 40px 16px; }
+  .login p { color: var(--muted); }
+
+  .weeks { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pill { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px;
+          padding: 7px 14px; cursor: pointer; font-size: 13px; }
+  .pill.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .pill .n { opacity: .75; margin-left: 4px; }
+
+  .banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; }
+  .banner.open { background: var(--warn-soft); color: var(--warn); }
+  .banner.closed { background: var(--bg); color: var(--muted); border: 1px dashed var(--line); }
+  .banner .grow { flex: 1; }
+  .btn { border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+  .btn.done { background: var(--ok-soft); color: var(--ok); cursor: default; }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 110px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--muted); font-size: 12px; }
+
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .tablebox { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; white-space: nowrap; }
+  td.mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .empty { color: var(--muted); padding: 18px 8px; text-align: center; }
+
+  .appeal-done { background: var(--ok-soft); color: var(--ok); border-radius: 8px; padding: 6px 8px; font-size: 12px; max-width: 260px; }
+  .appeal-done small { display: block; opacity: .8; }
+  .formrow td { background: var(--brand-soft); }
+  textarea { width: 100%; min-height: 80px; border: 1px solid var(--line); border-radius: 8px; padding: 8px;
+             font: inherit; background: var(--card); color: var(--text); resize: vertical; }
+  .formbar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .formbar .count { color: var(--muted); font-size: 12px; flex: 1; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--card);
+           padding: 10px 16px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; }
+  .loading { text-align: center; color: var(--muted); padding: 40px; }
 </style>
 </head>
 <body>
-  <h1>派遣帳號 Google 登入測試</h1>
-  <p>請用公司派遣信箱（@shopeemobile-external.com）登入，成功後把下方結果截圖回傳。</p>
+<div class="wrap">
+  <header>
+    <span class="badge">Shopee CS Team</span>
+    <h1>退單查詢與申訴</h1>
+    <span class="me" id="me"></span>
+  </header>
 
-  <!-- ⚠️ 把 YOUR_CLIENT_ID 換成 GCP OAuth Client ID -->
-  <div id="g_id_onload"
-       data-client_id="1065926217249-61fk1ji75kc7ksg0j3hsjls7h8ojv1pe.apps.googleusercontent.com"
-       data-callback="onCredential"
-       data-auto_prompt="false"></div>
-  <div class="g_id_signin" data-type="standard" data-text="signin_with" data-locale="zh-TW"></div>
+  <div id="app"></div>
+</div>
+<div class="toast" id="toast"></div>
 
-  <div id="result" class="box"></div>
+<!-- ⚠️ 部署前修改這兩個值 -->
+<script>
+  const CLIENT_ID = '1065926217249-61fk1ji75kc7ksg0j3hsjls7h8ojv1pe.apps.googleusercontent.com';
+  const API_BASE  = 'https://odd-sea-b2f7.yomi-sun.workers.dev/';
+</script>
 
 <script>
-  function decodeJwt(token) {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const json = decodeURIComponent(atob(b64).split('').map(c =>
-      '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    return JSON.parse(json);
+const S = { token: '', data: null, week: '', openForm: null };
+const $app = document.getElementById('app');
+
+/* ---------- 登入 ---------- */
+function showLogin(msg) {
+  S.token = '';
+  try { sessionStorage.removeItem('twcs_token'); } catch (_) {}
+  document.getElementById('me').innerHTML = '';
+  $app.innerHTML = `
+    <div class="card login">
+      <h2>請使用公司 Google 帳號登入</h2>
+      <p>${msg ? esc(msg) : '支援 @shopee.com 與 @shopeemobile-external.com'}</p>
+      <div id="gbtn" style="display:inline-block"></div>
+    </div>`;
+  const tryRender = () => {
+    if (!window.google?.accounts?.id) return setTimeout(tryRender, 200);
+    google.accounts.id.initialize({ client_id: CLIENT_ID, callback: r => onLogin(r.credential) });
+    google.accounts.id.renderButton(document.getElementById('gbtn'), { theme: 'outline', size: 'large', locale: 'zh-TW' });
+  };
+  tryRender();
+}
+
+function onLogin(token) {
+  S.token = token;
+  try { sessionStorage.setItem('twcs_token', token); } catch (_) {}
+  load();
+}
+
+function logout() {
+  if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+  showLogin('已登出');
+}
+
+/* ---------- API ---------- */
+async function api(path, payload = {}) {
+  const res = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: S.token, ...payload }),
+  });
+  const j = await res.json().catch(() => ({ ok: false, error: '伺服器回應異常' }));
+  if (res.status === 401) { showLogin(j.error); throw new Error(j.error); }
+  if (!j.ok) throw new Error(j.error || '發生錯誤');
+  return j;
+}
+
+async function load() {
+  $app.innerHTML = '<div class="loading">讀取資料中…</div>';
+  try {
+    S.data = await api('/api/me');
+    if (!S.week) S.week = S.data.weeks[0].week;
+    document.getElementById('me').innerHTML =
+      `${esc(S.data.user.name)}（${esc(S.data.user.email)}）　<button class="linkbtn" onclick="logout()">登出</button>`;
+    render();
+  } catch (e) {
+    if (S.token) $app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`;
+  }
+}
+
+/* ---------- 畫面 ---------- */
+function render() {
+  const d = S.data;
+  const wk = d.weeks.find(w => w.week === S.week);
+  const countOf = w => d.tabs.reduce((n, t) => n + t.rows.filter(r => r.week === w).length, 0);
+
+  const pills = d.weeks.map(w => `
+    <button class="pill ${w.week === S.week ? 'active' : ''}" onclick="pickWeek('${w.week}')">
+      ${w.week}<span class="n">${countOf(w.week)}</span>
+    </button>`).join('');
+
+  const banner = wk.open
+    ? `<div class="banner open"><span class="grow">⏰ 申訴開放至 <b>${fmtDeadline(wk.deadline)}</b>（剩 ${remain(wk.deadline)}）</span>${viewBtn(wk)}</div>`
+    : `<div class="banner closed"><span class="grow">此週次申訴已截止（${fmtDeadline(wk.deadline)}）</span>${viewBtn(wk)}</div>`;
+
+  const sync = d.syncing ? `<div class="banner open">🔄 系統正在同步退單資料，申訴暫停 30 分鐘</div>` : '';
+
+  const stats = d.tabs.map(t => `
+    <div class="stat"><b>${t.rows.filter(r => r.week === S.week).length}</b><span>${esc(t.name.replace('🆖', ''))}</span></div>`).join('');
+
+  const tables = d.tabs.map(t => tableHtml(t, wk)).join('');
+
+  $app.innerHTML = `<div class="weeks">${pills}</div>${sync}${banner}<div class="stats">${stats}</div>${tables}`;
+}
+
+function viewBtn(wk) {
+  return wk.viewed
+    ? `<button class="btn done" disabled>✓ 已查看</button>`
+    : `<button class="btn primary" onclick="markViewed('${wk.week}', this)">我已查看本週退單</button>`;
+}
+
+function tableHtml(t, wk) {
+  const rows = t.rows.filter(r => r.week === S.week);
+  const head = t.columns.map(c => `<th>${esc(c)}</th>`).join('') + '<th>申訴</th>';
+  const body = rows.length ? rows.map(r => rowHtml(t, r, wk)).join('')
+    : `<tr><td colspan="${t.columns.length + 1}" class="empty">本週沒有退單 🎉</td></tr>`;
+  return `<div class="card"><h2>${esc(t.name.replace('🆖', ''))}</h2>
+    <div class="tablebox"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+
+function rowHtml(t, r, wk) {
+  const id = `${t.key}-${r.row}`;
+  const cells = r.cells.map((v, i) =>
+    `<td class="${/案件編號|週次/.test(t.columns[i]) ? 'mono' : ''}">${esc(v)}</td>`).join('');
+  const canAppeal = wk.open && !S.data.syncing;
+
+  let act;
+  if (r.appeal) {
+    act = `<div class="appeal-done"><small>已申訴 ${esc(r.appeal.time)}</small>${esc(r.appeal.text)}</div>`
+        + (canAppeal ? `<button class="linkbtn" onclick="openForm('${id}')">修改</button>` : '');
+  } else {
+    act = canAppeal ? `<button class="btn ghost" onclick="openForm('${id}')">申訴</button>` : '<span class="me">—</span>';
   }
 
-  function onCredential(resp) {
-    const p = decodeJwt(resp.credential);
-    const isExternal = /@shopeemobile-external\.com$/i.test(p.email || '');
-    const box = document.getElementById('result');
-    box.className = 'box ' + (isExternal ? 'ok' : 'bad');
-    box.style.display = 'block';
-    box.innerHTML = `
-      <strong>${isExternal ? '✅ 派遣帳號登入成功' : '⚠️ 登入成功，但不是派遣網域'}</strong>
-      <table>
-        <tr><td>email</td><td>${p.email || ''}</td></tr>
-        <tr><td>hd（網域）</td><td>${p.hd || '（無）'}</td></tr>
-        <tr><td>email_verified</td><td>${p.email_verified}</td></tr>
-        <tr><td>name</td><td>${p.name || ''}</td></tr>
-      </table>`;
+  let html = `<tr>${cells}<td>${act}</td></tr>`;
+  if (S.openForm === id) {
+    html += `<tr class="formrow"><td colspan="${t.columns.length + 1}">
+      <textarea id="ta-${id}" maxlength="500" placeholder="請說明申訴理由（500 字內）"
+        oninput="this.closest('td').querySelector('.count').textContent = this.value.length + ' / 500'">${r.appeal ? esc(r.appeal.text) : ''}</textarea>
+      <div class="formbar">
+        <span class="count">${r.appeal ? r.appeal.text.length : 0} / 500</span>
+        <button class="btn ghost" onclick="openForm(null)">取消</button>
+        <button class="btn primary" onclick="submitAppeal('${t.key}', ${r.row}, this)">送出申訴</button>
+      </div></td></tr>`;
   }
+  return html;
+}
+
+/* ---------- 動作 ---------- */
+function pickWeek(w) { S.week = w; S.openForm = null; render(); }
+
+function openForm(id) {
+  S.openForm = id; render();
+  if (id) setTimeout(() => document.getElementById('ta-' + id)?.focus(), 0);
+}
+
+async function submitAppeal(tabKey, rowNum, btn) {
+  const t = S.data.tabs.find(x => x.key === tabKey);
+  const r = t.rows.find(x => x.row === rowNum);
+  const text = document.getElementById(`ta-${tabKey}-${rowNum}`).value.trim();
+  if (!text) return toast('請填寫申訴內容');
+  btn.disabled = true; btn.textContent = '送出中…';
+  try {
+    const j = await api('/api/appeal', {
+      tab: tabKey, row: r.row, week: r.week, caseId: r.caseId, category: r.category, text,
+    });
+    r.appeal = j.appeal;
+    S.openForm = null; render();
+    toast('✅ 申訴已送出');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '送出申訴';
+    toast('❌ ' + e.message);
+  }
+}
+
+async function markViewed(week, btn) {
+  btn.disabled = true;
+  try {
+    await api('/api/viewed', { week });
+    S.data.weeks.find(w => w.week === week).viewed = true;
+    render(); toast('已記錄查看');
+  } catch (e) { btn.disabled = false; toast('❌ ' + e.message); }
+}
+
+/* ---------- 工具 ---------- */
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtDeadline(ms) {
+  const d = new Date(ms + 8 * 3600e3);
+  const wd = '日一二三四五六'[d.getUTCDay()];
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}（${wd}）${String(d.getUTCHours()).padStart(2, '0')}:00`;
+}
+function remain(ms) {
+  const m = Math.max(0, Math.floor((ms - Date.now()) / 60000));
+  return m >= 60 ? `${Math.floor(m / 60)} 小時 ${m % 60} 分` : `${m} 分鐘`;
+}
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* ---------- 啟動 ---------- */
+(function init() {
+  let saved = '';
+  try { saved = sessionStorage.getItem('twcs_token') || ''; } catch (_) {}
+  if (saved) {
+    try {
+      const exp = JSON.parse(atob(saved.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000;
+      if (exp > Date.now() + 60000) return onLogin(saved);
+    } catch (_) {}
+  }
+  showLogin();
+})();
 </script>
 </body>
 </html>
